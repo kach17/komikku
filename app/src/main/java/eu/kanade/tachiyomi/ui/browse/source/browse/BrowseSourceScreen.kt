@@ -55,7 +55,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
-import eu.kanade.domain.source.model.installedExtension
+import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesScreen
@@ -228,7 +228,7 @@ data class BrowseSourceScreen(
                             onHelpClick = onHelpClick,
                             // KMK -->
                             onToggleIncognito = screenModel::toggleIncognitoMode,
-                            onSettingsClick = screenModel.source.installedExtension?.pkgName?.let { pkgName ->
+                            onSettingsClick = Injekt.get<ExtensionManager>().getExtensionPackage(sourceId)?.let { pkgName ->
                                 {
                                     when {
                                         screenModel.source.isEhBasedSource() && isHentaiEnabled ->

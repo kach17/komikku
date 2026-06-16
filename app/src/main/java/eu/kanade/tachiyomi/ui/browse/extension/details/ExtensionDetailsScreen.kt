@@ -59,7 +59,7 @@ data class ExtensionDetailsScreen(
             onClickDisableAll = { screenModel.toggleSources(false) },
             onClickClearCookies = screenModel::clearCookies,
             onClickUninstall = screenModel::uninstallExtension,
-            onClickUpdate = screenModel::updateExtension.takeIf { state.extension?.hasUpdate == true },
+            onClickUpdate = if (state.extension?.hasUpdate == true) screenModel::updateExtension else null,
             onClickMigrate = { sourceId -> navigator.push(MigrateMangaScreen(sourceId)) },
             onClickSource = screenModel::toggleSource,
             onClickIncognito = screenModel::toggleIncognito,
