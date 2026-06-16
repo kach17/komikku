@@ -25,8 +25,11 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordScreen
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.browse.feed.FeedScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
 import eu.kanade.tachiyomi.ui.browse.feed.feedTab
+import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
+import eu.kanade.tachiyomi.ui.browse.source.sourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.channels.BufferOverflow
@@ -77,35 +80,49 @@ data object BrowseTab : Tab {
         val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
         val extensionsState by extensionsScreenModel.state.collectAsState()
 
+        val sourcesScreenModel = rememberScreenModel { SourcesScreenModel() }
+
         // KMK -->
         val feedScreenModel = rememberScreenModel { FeedScreenModel() }
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
         // KMK <--
 
+        // SY -->
         val tabs = when {
             hideFeedTab ->
                 persistentListOf(
-                    extensionsTab(extensionsScreenModel),
+                    sourcesTab(),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    migrateSourceTab(),
                 )
 
             feedTabInFront ->
                 persistentListOf(
                     feedTab(
+                        // KMK -->
                         feedScreenModel,
                         bulkFavoriteScreenModel,
+                        // KMK <--
                     ),
-                    extensionsTab(extensionsScreenModel),
+                    sourcesTab(),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    migrateSourceTab(),
                 )
 
             else ->
                 persistentListOf(
-                    extensionsTab(extensionsScreenModel),
+                    sourcesTab(),
                     feedTab(
+                        // KMK -->
                         feedScreenModel,
                         bulkFavoriteScreenModel,
+                        // KMK <--
                     ),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    migrateSourceTab(),
                 )
         }
+        // SY <--
 
         val state = rememberPagerState { tabs.size }
 
@@ -122,7 +139,7 @@ data object BrowseTab : Tab {
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()
-                .collectLatest { state.scrollToPage(if (feedTabInFront) 1 else 0) }
+                .collectLatest { state.scrollToPage(/* SY --> */2/* SY <-- */) }
         }
 
         LaunchedEffect(Unit) {

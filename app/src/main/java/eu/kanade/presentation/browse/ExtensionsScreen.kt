@@ -61,8 +61,6 @@ import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.sy.SYMR
-import tachiyomi.presentation.core.components.Badge
-import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.padding
@@ -83,7 +81,7 @@ fun ExtensionScreen(
     searchQuery: String?,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
+    onOpenWebView: (Extension) -> Unit,
     onInstallExtension: (Extension.Available) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension.Installed) -> Unit,
@@ -144,7 +142,7 @@ private fun ExtensionContent(
     contentPadding: PaddingValues,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension.Available) -> Unit,
+    onOpenWebView: (Extension) -> Unit,
     onInstallExtension: (Extension.Available) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension.Installed) -> Unit,
@@ -260,7 +258,7 @@ private fun ExtensionContent(
                     onClickItemSecondaryAction = {
                         when (it) {
                             is Extension.Available -> onOpenWebView(it)
-                            is Extension.Installed -> onOpenExtension(it)
+                            is Extension.Installed -> onOpenWebView(it)
                             else -> {}
                         }
                     },
@@ -348,6 +346,7 @@ private fun ExtensionItem(
             ExtensionItemActions(
                 extension = extension,
                 installStep = installStep,
+                favoriteCount = favoriteCount,
                 onClickItemCancel = onClickItemCancel,
                 onClickItemAction = onClickItemAction,
                 onClickItemSecondaryAction = onClickItemSecondaryAction,
@@ -357,7 +356,6 @@ private fun ExtensionItem(
         ExtensionItemContent(
             extension = extension,
             installStep = installStep,
-            favoriteCount = favoriteCount,
             modifier = Modifier.weight(1f),
         )
     }
@@ -368,25 +366,16 @@ private fun ExtensionItemContent(
     extension: Extension,
     installStep: InstallStep,
     modifier: Modifier = Modifier,
-    favoriteCount: Long? = null,
 ) {
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = extension.name,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f, fill = false),
-            )
-            if (favoriteCount != null && extension is Extension.Installed) {
-                BadgeGroup(modifier = Modifier.padding(start = MaterialTheme.padding.small)) {
-                    Badge(text = favoriteCount.toString())
-                }
-            }
-        }
+        Text(
+            text = extension.name,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodyMedium,
+        )
 
         // Won't look good but it's not like we can ellipsize overflowing content
         FlowRow(
@@ -466,6 +455,7 @@ private fun ExtensionItemActions(
     extension: Extension,
     installStep: InstallStep,
     modifier: Modifier = Modifier,
+    favoriteCount: Long? = null,
     onClickItemCancel: (Extension) -> Unit = {},
     onClickItemAction: (Extension) -> Unit = {},
     onClickItemSecondaryAction: (Extension) -> Unit = {},
@@ -475,7 +465,16 @@ private fun ExtensionItemActions(
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (isIdle && extension is Extension.Installed && favoriteCount != null) {
+            Text(
+                text = favoriteCount.toString(),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.secondaryItemAlpha(),
+            )
+        }
         when {
             !isIdle -> {
                 IconButton(onClick = { onClickItemCancel(extension) }) {
@@ -498,8 +497,8 @@ private fun ExtensionItemActions(
                     is Extension.Installed -> {
                         IconButton(onClick = { onClickItemSecondaryAction(extension) }) {
                             Icon(
-                                imageVector = Icons.Outlined.Settings,
-                                contentDescription = stringResource(MR.strings.action_settings),
+                                imageVector = Icons.Outlined.Public,
+                                contentDescription = stringResource(MR.strings.action_open_in_web_view),
                             )
                         }
 
