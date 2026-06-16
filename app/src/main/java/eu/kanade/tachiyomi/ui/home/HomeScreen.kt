@@ -79,7 +79,7 @@ object HomeScreen : Screen() {
         LibraryTab,
         UpdatesTab,
         HistoryTab,
-        BrowseTab,
+        BrowseTab(),
         MoreTab,
     )
 
@@ -182,12 +182,9 @@ object HomeScreen : Screen() {
                             is Tab.Library -> LibraryTab
                             Tab.Updates -> UpdatesTab
                             Tab.History -> HistoryTab
-                            is Tab.Browse -> {
-                                if (it.toExtensions) {
-                                    BrowseTab.showExtension()
-                                }
-                                BrowseTab
-                            }
+                            is Tab.Browse -> BrowseTab(
+                                it.toExtensions,
+                            )
                             is Tab.More -> MoreTab
                         }
 
@@ -303,7 +300,7 @@ object HomeScreen : Screen() {
                             }
                         }
                     }
-                    BrowseTab::class.isInstance(tab) -> {
+                    tab is BrowseTab -> {
                         val count by produceState(initialValue = 0) {
                             Injekt.get<SourcePreferences>().extensionUpdatesCount().changes()
                                 .collectLatest { value = it }
