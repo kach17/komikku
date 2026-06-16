@@ -6,6 +6,7 @@
 
   # Use https://search.nixos.org/packages to find packages
   packages = [
+    pkgs.openjdk17
     # pkgs.go
     # pkgs.python311
     # pkgs.python311Packages.pip
@@ -14,7 +15,10 @@
   ];
 
   # Sets environment variables in the workspace
-  env = {};
+  env = {
+    JAVA_HOME = "${pkgs.openjdk17}";
+  };
+
   idx = {
     # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
