@@ -23,6 +23,7 @@ import eu.kanade.presentation.components.TabContent
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionReposScreen
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
 import eu.kanade.tachiyomi.util.system.isPackageInstalled
 import kotlinx.collections.immutable.persistentListOf
@@ -41,7 +42,7 @@ fun extensionsTab(
     var privateExtensionToUninstall by remember { mutableStateOf<Extension?>(null) }
 
     return TabContent(
-        titleRes = MR.strings.label_extensions,
+        titleRes = MR.strings.label_sources,
         badgeNumber = state.updates.takeIf { it > 0 },
         searchEnabled = true,
         actions = persistentListOf(
@@ -100,7 +101,14 @@ fun extensionsTab(
                     }
                 },
                 onInstallExtension = extensionsScreenModel::installExtension,
-                onOpenExtension = { navigator.push(ExtensionDetailsScreen(it.pkgName)) },
+                onOpenExtension = { extension ->
+                    val firstSource = extension.sources.getOrNull(0)
+                    if (firstSource != null) {
+                        navigator.push(BrowseSourceScreen(firstSource.id))
+                    } else {
+                        navigator.push(ExtensionDetailsScreen(extension.pkgName))
+                    }
+                },
                 onTrustExtension = { extensionsScreenModel.trustExtension(it) },
                 onUninstallExtension = { extensionsScreenModel.uninstallExtension(it) },
                 onUpdateExtension = extensionsScreenModel::updateExtension,
