@@ -7,6 +7,8 @@ import cafe.adriel.voyager.core.model.screenModelScope
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
+import eu.kanade.domain.source.interactor.GetSourcesWithFavoriteCount
+import eu.kanade.domain.source.model.installedExtension
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -41,6 +43,7 @@ class ExtensionsScreenModel(
     basePreferences: BasePreferences = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensions: GetExtensionsByType = Injekt.get(),
+    private val getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount = Injekt.get(),
 ) : StateScreenModel<ExtensionsScreenModel.State>(State()) {
 
     private val currentDownloads = MutableStateFlow<Map<String, InstallStep>>(hashMapOf())
@@ -137,6 +140,17 @@ class ExtensionsScreenModel(
 
         basePreferences.extensionInstaller().changes()
             .onEach { mutableState.update { state -> state.copy(installer = it) } }
+            .launchIn(screenModelScope)
+
+        getSourcesWithFavoriteCount.subscribe()
+            .onEach { sourceCounts ->
+                val countByPkg = sourceCounts
+                    .groupBy { it.first.installedExtension?.pkgName }
+                    .filterKeys { it != null }
+                    .mapKeys { it.key!! }
+                    .mapValues { entry -> entry.value.sumOf { it.second } }
+                mutableState.update { it.copy(favoriteCountByPkgName = countByPkg) }
+            }
             .launchIn(screenModelScope)
     }
 
@@ -275,6 +289,7 @@ class ExtensionsScreenModel(
         // KMK -->
         val nsfwOnly: Boolean = false,
         // KMK <--
+        val favoriteCountByPkgName: Map<String, Long> = emptyMap(),
     ) {
         val isEmpty = items.isEmpty()
     }

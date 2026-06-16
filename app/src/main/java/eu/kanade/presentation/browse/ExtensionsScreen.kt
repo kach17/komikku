@@ -243,6 +243,8 @@ private fun ExtensionContent(
                 ExtensionItem(
                     modifier = Modifier.animateItemFastScroll(),
                     item = item,
+                    favoriteCount = (item.extension as? Extension.Installed)
+                        ?.let { state.favoriteCountByPkgName[it.pkgName] },
                     onClickItem = {
                         when (it) {
                             is Extension.Available -> onInstallExtension(it)
@@ -305,6 +307,7 @@ private fun ExtensionItem(
     onClickItemCancel: (Extension) -> Unit,
     onClickItemAction: (Extension) -> Unit,
     onClickItemSecondaryAction: (Extension) -> Unit,
+    favoriteCount: Long? = null,
     modifier: Modifier = Modifier,
 ) {
     val (extension, installStep) = item
@@ -352,6 +355,7 @@ private fun ExtensionItem(
         ExtensionItemContent(
             extension = extension,
             installStep = installStep,
+            favoriteCount = favoriteCount,
             modifier = Modifier.weight(1f),
         )
     }
@@ -362,16 +366,25 @@ private fun ExtensionItemContent(
     extension: Extension,
     installStep: InstallStep,
     modifier: Modifier = Modifier,
+    favoriteCount: Long? = null,
 ) {
     Column(
         modifier = modifier.padding(start = MaterialTheme.padding.medium),
     ) {
-        Text(
-            text = extension.name,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = extension.name,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            if (favoriteCount != null && extension is Extension.Installed) {
+                BadgeGroup(modifier = Modifier.padding(start = MaterialTheme.padding.small)) {
+                    Badge(text = favoriteCount.toString())
+                }
+            }
+        }
 
         // Won't look good but it's not like we can ellipsize overflowing content
         FlowRow(

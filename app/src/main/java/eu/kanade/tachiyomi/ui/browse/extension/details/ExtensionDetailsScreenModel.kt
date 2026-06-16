@@ -25,7 +25,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.launch
+import tachiyomi.core.common.util.lang.launchIO
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import tachiyomi.core.common.util.system.logcat
@@ -120,6 +122,14 @@ class ExtensionDetailsScreenModel(
     fun uninstallExtension() {
         val extension = state.value.extension ?: return
         extensionManager.uninstallExtension(extension)
+    }
+
+    fun updateExtension() {
+        val extension = state.value.extension ?: return
+        if (!extension.hasUpdate) return
+        screenModelScope.launchIO {
+            extensionManager.updateExtension(extension).launchIn(screenModelScope)
+        }
     }
 
     fun toggleSource(sourceId: Long) {

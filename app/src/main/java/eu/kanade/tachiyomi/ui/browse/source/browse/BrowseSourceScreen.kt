@@ -55,6 +55,8 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.browse.BulkFavoriteScreenModel
+import eu.kanade.domain.source.model.installedExtension
+import eu.kanade.tachiyomi.ui.browse.extension.details.ExtensionDetailsScreen
 import eu.kanade.tachiyomi.ui.browse.extension.details.SourcePreferencesScreen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesScreen
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
@@ -226,15 +228,16 @@ data class BrowseSourceScreen(
                             onHelpClick = onHelpClick,
                             // KMK -->
                             onToggleIncognito = screenModel::toggleIncognitoMode,
-                            onSettingsClick = {
-                                when {
-                                    screenModel.source.isEhBasedSource() && isHentaiEnabled ->
-                                        navigator.push(SettingsEhScreen)
-                                    screenModel.source.anyIs<ConfigurableSource>() ->
-                                        navigator.push(SourcePreferencesScreen(sourceId))
-                                    else -> {}
+                            onSettingsClick = screenModel.source.installedExtension?.pkgName?.let { pkgName ->
+                                {
+                                    when {
+                                        screenModel.source.isEhBasedSource() && isHentaiEnabled ->
+                                            navigator.push(SettingsEhScreen)
+                                        else ->
+                                            navigator.push(ExtensionDetailsScreen(pkgName))
+                                    }
                                 }
-                            }.takeIf { isConfigurableSource },
+                            },
                             // KMK <--
                             onSearch = screenModel::search,
                             // KMK -->

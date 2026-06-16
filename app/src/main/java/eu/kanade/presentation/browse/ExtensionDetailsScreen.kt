@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Launch
+import androidx.compose.material.icons.outlined.FindReplace
 import androidx.compose.material.icons.outlined.Public
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.AlertDialog
@@ -80,6 +81,8 @@ fun ExtensionDetailsScreen(
     onClickDisableAll: () -> Unit,
     onClickClearCookies: () -> Unit,
     onClickUninstall: () -> Unit,
+    onClickUpdate: (() -> Unit)?,
+    onClickMigrate: ((sourceId: Long) -> Unit)?,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -162,6 +165,8 @@ fun ExtensionDetailsScreen(
             incognitoMode = state.isIncognito,
             onClickSourcePreferences = onClickSourcePreferences,
             onClickUninstall = onClickUninstall,
+            onClickUpdate = onClickUpdate,
+            onClickMigrate = onClickMigrate,
             onClickSource = onClickSource,
             onClickIncognito = onClickIncognito,
         )
@@ -176,6 +181,8 @@ private fun ExtensionDetails(
     incognitoMode: Boolean,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
     onClickUninstall: () -> Unit,
+    onClickUpdate: (() -> Unit)?,
+    onClickMigrate: ((sourceId: Long) -> Unit)?,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -203,6 +210,7 @@ private fun ExtensionDetails(
                 extension = extension,
                 extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
+                onClickUpdate = onClickUpdate,
                 onClickAppInfo = {
                     Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                         data = Uri.fromParts("package", extension.pkgName, null)
@@ -226,6 +234,7 @@ private fun ExtensionDetails(
                 source = source,
                 onClickSourcePreferences = onClickSourcePreferences,
                 onClickSource = onClickSource,
+                onClickMigrate = onClickMigrate?.let { { it(source.source.id) } },
             )
         }
     }
@@ -244,6 +253,7 @@ private fun DetailsHeader(
     extIncognitoMode: Boolean,
     onClickAgeRating: () -> Unit,
     onClickUninstall: () -> Unit,
+    onClickUpdate: (() -> Unit)?,
     onClickAppInfo: (() -> Unit)?,
     onExtIncognitoChange: (Boolean) -> Unit,
 ) {
@@ -358,6 +368,15 @@ private fun DetailsHeader(
                 Text(stringResource(MR.strings.ext_uninstall))
             }
 
+            if (onClickUpdate != null) {
+                OutlinedButton(
+                    modifier = Modifier.weight(1f),
+                    onClick = onClickUpdate,
+                ) {
+                    Text(stringResource(MR.strings.ext_update))
+                }
+            }
+
             if (onClickAppInfo != null) {
                 Button(
                     modifier = Modifier.weight(1f),
@@ -444,6 +463,7 @@ private fun SourceSwitchPreference(
     source: ExtensionSourceItem,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
+    onClickMigrate: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -459,6 +479,16 @@ private fun SourceSwitchPreference(
             Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                if (onClickMigrate != null) {
+                    IconButton(onClick = onClickMigrate) {
+                        Icon(
+                            imageVector = Icons.Outlined.FindReplace,
+                            contentDescription = stringResource(MR.strings.action_migrate),
+                            tint = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+
                 if (source.source is ConfigurableSource) {
                     IconButton(onClick = { onClickSourcePreferences(source.source.id) }) {
                         Icon(
