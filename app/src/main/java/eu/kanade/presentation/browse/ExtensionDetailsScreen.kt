@@ -1,8 +1,5 @@
 package eu.kanade.presentation.browse
 
-import android.content.Intent
-import android.net.Uri
-import android.provider.Settings
 import android.util.DisplayMetrics
 import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
@@ -73,13 +70,14 @@ fun ExtensionDetailsScreen(
     navigateUp: () -> Unit,
     state: ExtensionDetailsScreenModel.State,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
+    onClickUninstall: () -> Unit,
+    onClickAppInfo: () -> Unit,
     // KMK -->
     onOpenWebView: (() -> Unit)?,
     // KMK <--
     onClickEnableAll: () -> Unit,
     onClickDisableAll: () -> Unit,
     onClickClearCookies: () -> Unit,
-    onClickUninstall: () -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -162,6 +160,7 @@ fun ExtensionDetailsScreen(
             incognitoMode = state.isIncognito,
             onClickSourcePreferences = onClickSourcePreferences,
             onClickUninstall = onClickUninstall,
+            onClickAppInfo = onClickAppInfo,
             onClickSource = onClickSource,
             onClickIncognito = onClickIncognito,
         )
@@ -176,6 +175,7 @@ private fun ExtensionDetails(
     incognitoMode: Boolean,
     onClickSourcePreferences: (sourceId: Long) -> Unit,
     onClickUninstall: () -> Unit,
+    onClickAppInfo: () -> Unit,
     onClickSource: (sourceId: Long) -> Unit,
     onClickIncognito: (Boolean) -> Unit,
 ) {
@@ -203,13 +203,7 @@ private fun ExtensionDetails(
                 extension = extension,
                 extIncognitoMode = incognitoMode,
                 onClickUninstall = onClickUninstall,
-                onClickAppInfo = {
-                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                        data = Uri.fromParts("package", extension.pkgName, null)
-                        context.startActivity(this)
-                    }
-                    Unit
-                }.takeIf { extension.isShared },
+                onClickAppInfo = onClickAppInfo.takeIf { extension.isShared },
                 onClickAgeRating = {
                     showNsfwWarning = true
                 },

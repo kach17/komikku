@@ -1,6 +1,9 @@
 package eu.kanade.tachiyomi.ui.browse.extension.details
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.compose.runtime.Immutable
 import cafe.adriel.voyager.core.model.StateScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
@@ -33,8 +36,8 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class ExtensionDetailsScreenModel(
-    pkgName: String,
-    context: Context,
+    private val pkgName: String,
+    private val context: Context,
     private val network: NetworkHelper = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensionSources: GetExtensionSources = Injekt.get(),
@@ -95,6 +98,13 @@ class ExtensionDetailsScreenModel(
                     }
             }
         }
+    }
+
+    fun openAppSettings() {
+        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+            data = Uri.fromParts("package", pkgName, null)
+        }
+        context.startActivity(intent)
     }
 
     fun clearCookies() {
