@@ -104,7 +104,7 @@ fun extensionsTab(
                 onOpenExtension = { extension ->
                     val firstSource = extension.sources.getOrNull(0)
                     if (firstSource != null) {
-                        navigator.push(BrowseSourceScreen(firstSource.id))
+                        navigator.push(BrowseSourceScreen(firstSource.id, null))
                     } else {
                         navigator.push(ExtensionDetailsScreen(extension.pkgName))
                     }
