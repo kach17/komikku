@@ -90,7 +90,12 @@ fun extensionsTab(
                 onClickItemCancel = extensionsScreenModel::cancelInstallUpdateExtension,
                 onClickUpdateAll = extensionsScreenModel::updateAllExtensions,
                 onOpenWebView = { extension ->
-                    extension.sources.getOrNull(0)?.let {
+                    val source = when (extension) {
+                        is Extension.Installed -> extension.sources.getOrNull(0)
+                        is Extension.Available -> extension.sources.getOrNull(0)
+                        else -> null
+                    }
+                    source?.let {
                         navigator.push(
                             WebViewScreen(
                                 url = it.baseUrl,

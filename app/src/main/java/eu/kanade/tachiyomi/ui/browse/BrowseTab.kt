@@ -25,7 +25,6 @@ import eu.kanade.tachiyomi.data.connections.discord.DiscordScreen
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.browse.feed.FeedScreenModel
-import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
 import eu.kanade.tachiyomi.ui.browse.feed.feedTab
 import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
@@ -80,8 +79,6 @@ data object BrowseTab : Tab {
         val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
         val extensionsState by extensionsScreenModel.state.collectAsState()
 
-        val sourcesScreenModel = rememberScreenModel { SourcesScreenModel() }
-
         // KMK -->
         val feedScreenModel = rememberScreenModel { FeedScreenModel() }
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
@@ -92,7 +89,7 @@ data object BrowseTab : Tab {
             hideFeedTab ->
                 persistentListOf(
                     sourcesTab(),
-                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    extensionsTab(extensionsScreenModel),
                     migrateSourceTab(),
                 )
 
@@ -105,7 +102,7 @@ data object BrowseTab : Tab {
                         // KMK <--
                     ),
                     sourcesTab(),
-                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    extensionsTab(extensionsScreenModel),
                     migrateSourceTab(),
                 )
 
@@ -118,7 +115,7 @@ data object BrowseTab : Tab {
                         bulkFavoriteScreenModel,
                         // KMK <--
                     ),
-                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
+                    extensionsTab(extensionsScreenModel),
                     migrateSourceTab(),
                 )
         }
