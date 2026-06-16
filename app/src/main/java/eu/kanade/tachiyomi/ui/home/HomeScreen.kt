@@ -79,7 +79,7 @@ object HomeScreen : Screen() {
         LibraryTab,
         UpdatesTab,
         HistoryTab,
-        BrowseTab(),
+        BrowseTab.Unified,
         MoreTab,
     )
 
@@ -182,9 +182,7 @@ object HomeScreen : Screen() {
                             is Tab.Library -> LibraryTab
                             Tab.Updates -> UpdatesTab
                             Tab.History -> HistoryTab
-                            is Tab.Browse -> BrowseTab(
-                                it.toExtensions,
-                            )
+                            is Tab.Browse -> if (it.toExtensions) BrowseTab.Unified else BrowseTab.Feed
                             is Tab.More -> MoreTab
                         }
 
