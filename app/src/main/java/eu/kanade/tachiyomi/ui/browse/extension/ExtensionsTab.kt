@@ -90,19 +90,30 @@ fun extensionsTab(
                 onClickItemCancel = extensionsScreenModel::cancelInstallUpdateExtension,
                 onClickUpdateAll = extensionsScreenModel::updateAllExtensions,
                 onOpenWebView = { extension ->
-                    val source = when (extension) {
-                        is Extension.Installed -> extension.sources.getOrNull(0)
-                        is Extension.Available -> extension.sources.getOrNull(0)
-                        else -> null
-                    }
-                    source?.let {
-                        navigator.push(
-                            WebViewScreen(
-                                url = it.baseUrl,
-                                initialTitle = it.name,
-                                sourceId = it.id,
-                            ),
-                        )
+                    when (extension) {
+                        is Extension.Available -> {
+                            extension.sources.getOrNull(0)?.let {
+                                navigator.push(
+                                    WebViewScreen(
+                                        url = it.baseUrl,
+                                        initialTitle = it.name,
+                                        sourceId = it.id,
+                                    ),
+                                )
+                            }
+                        }
+                        is Extension.Installed -> {
+                            (extension.sources.getOrNull(0) as? eu.kanade.tachiyomi.source.online.HttpSource)?.let {
+                                navigator.push(
+                                    WebViewScreen(
+                                        url = it.baseUrl,
+                                        initialTitle = it.name,
+                                        sourceId = it.id,
+                                    ),
+                                )
+                            }
+                        }
+                        else -> {}
                     }
                 },
                 onInstallExtension = extensionsScreenModel::installExtension,
