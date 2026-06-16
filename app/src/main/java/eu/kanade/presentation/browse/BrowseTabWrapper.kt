@@ -19,7 +19,7 @@ fun BrowseTabWrapper(tab: BrowseTab) {
         }
         is BrowseTab.Unified -> {
             // Correctly instantiate the screen
-            UnifiedSourcesScreen().Content()
+            UnifiedSourcesScreen()
         }
     }
 }
