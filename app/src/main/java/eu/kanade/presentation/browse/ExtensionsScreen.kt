@@ -4,7 +4,9 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,7 +14,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.Alignment
+import eu.kanade.presentation.browse.SourceHeader
+import eu.kanade.presentation.browse.SourceItem
+import eu.kanade.presentation.browse.SourceUiModel
+import eu.kanade.presentation.components.AnimatedFloatingSearchBox
+import eu.kanade.presentation.components.SOURCE_SEARCH_BOX_HEIGHT
+import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
+import tachiyomi.domain.source.model.Source
+import tachiyomi.i18n.kmk.KMR
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.GetApp
@@ -38,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -61,6 +76,8 @@ import kotlinx.collections.immutable.persistentListOf
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.sy.SYMR
+import tachiyomi.presentation.core.components.Badge
+import tachiyomi.presentation.core.components.BadgeGroup
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.padding
@@ -89,6 +106,11 @@ fun ExtensionScreen(
     onOpenExtension: (Extension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
+    sourcesState: SourcesScreenModel.State? = null,
+    onClickSourceItem: ((Source, Listing) -> Unit)? = null,
+    onClickSourcePin: ((Source) -> Unit)? = null,
+    onLongClickSourceItem: ((Source) -> Unit)? = null,
+    onChangeSourceSearchQuery: ((String?) -> Unit)? = null,
 ) {
     val navigator = LocalNavigator.currentOrThrow
 
@@ -130,6 +152,11 @@ fun ExtensionScreen(
                     onTrustExtension = onTrustExtension,
                     onOpenExtension = onOpenExtension,
                     onClickUpdateAll = onClickUpdateAll,
+                    sourcesState = sourcesState,
+                    onClickSourceItem = onClickSourceItem,
+                    onClickSourcePin = onClickSourcePin,
+                    onLongClickSourceItem = onLongClickSourceItem,
+                    onChangeSourceSearchQuery = onChangeSourceSearchQuery,
                 )
             }
         }
@@ -149,6 +176,11 @@ private fun ExtensionContent(
     onTrustExtension: (Extension.Untrusted) -> Unit,
     onOpenExtension: (Extension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
+    sourcesState: SourcesScreenModel.State? = null,
+    onClickSourceItem: ((Source, Listing) -> Unit)? = null,
+    onClickSourcePin: ((Source) -> Unit)? = null,
+    onLongClickSourceItem: ((Source) -> Unit)? = null,
+    onChangeSourceSearchQuery: ((String?) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     var trustState by remember { mutableStateOf<Extension.Untrusted?>(null) }
@@ -157,21 +189,81 @@ private fun ExtensionContent(
     val navigator = LocalNavigator.current
     // KMK <--
 
-    FastScrollLazyColumn(
-        contentPadding = contentPadding + topSmallPaddingValues,
-    ) {
-        if (!installGranted && state.installer?.requiresSystemPermission == true) {
-            item(key = "extension-permissions-warning") {
-                WarningBanner(
-                    textRes = MR.strings.ext_permission_install_apps_warning,
-                    modifier = Modifier.clickable {
-                        context.launchRequestPackageInstallsPermission()
-                    },
-                )
+    val lazyListState = rememberLazyListState()
+    var searchBoxHeight by remember { mutableStateOf(SOURCE_SEARCH_BOX_HEIGHT) }
+    val density = LocalDensity.current
+
+    Box {
+        FastScrollLazyColumn(
+            state = lazyListState,
+            contentPadding = if (sourcesState != null) {
+                contentPadding + PaddingValues(top = searchBoxHeight)
+            } else {
+                contentPadding + topSmallPaddingValues
+            },
+        ) {
+            // Source items — pinned, last used, language grouped
+            if (sourcesState != null && onClickSourceItem != null) {
+                sourcesState.items.forEach { model ->
+                    when (model) {
+                        is SourceUiModel.Header -> {
+                            stickyHeader(
+                                key = "source-header-${model.hashCode()}",
+                                contentType = "source-header",
+                            ) {
+                                SourceHeader(
+                                    modifier = Modifier
+                                        .animateItemFastScroll()
+                                        .background(MaterialTheme.colorScheme.background)
+                                        .fillMaxWidth(),
+                                    language = model.language,
+                                    isCategory = model.isCategory,
+                                )
+                            }
+                        }
+                        is SourceUiModel.Item -> {
+                            item(
+                                key = "source-${model.source.key()}",
+                                contentType = "source-item",
+                            ) {
+                                SourceItem(
+                                    modifier = Modifier.animateItemFastScroll(),
+                                    source = model.source,
+                                    showLatest = sourcesState.showLatest,
+                                    showPin = sourcesState.showPin,
+                                    onClickItem = onClickSourceItem,
+                                    onLongClickItem = { onLongClickSourceItem?.invoke(it) },
+                                    onClickPin = { onClickSourcePin?.invoke(it) },
+                                )
+                            }
+                        }
+                    }
+                }
             }
+
+            if (!installGranted && state.installer?.requiresSystemPermission == true) {
+                item(key = "extension-permissions-warning") {
+                    WarningBanner(
+                        textRes = MR.strings.ext_permission_install_apps_warning,
+                        modifier = Modifier.clickable {
+                            context.launchRequestPackageInstallsPermission()
+                        },
+                    )
+                }
+            }
+
+        // Filter out installed group when sources section is present to avoid duplication
+        val extensionItems = if (sourcesState != null) {
+            state.items.filter { (header, _) ->
+                header !is ExtensionUiModel.Header.Resource ||
+                    (header.textRes != MR.strings.ext_installed &&
+                        header.textRes != MR.strings.ext_updates_pending)
+            }
+        } else {
+            state.items
         }
 
-        state.items.forEach { (header, items) ->
+        extensionItems.forEach { (header, items) ->
             item(
                 contentType = "header",
                 key = "extensionHeader-${header.hashCode()}",
@@ -281,7 +373,28 @@ private fun ExtensionContent(
                 )
             }
         }
-    }
+
+        // Floating search box for sources — same pattern as SourcesScreen
+        if (sourcesState != null && onChangeSourceSearchQuery != null) {
+            AnimatedFloatingSearchBox(
+                listState = lazyListState,
+                searchQuery = sourcesState.searchQuery,
+                onChangeSearchQuery = onChangeSourceSearchQuery,
+                placeholderText = stringResource(KMR.strings.action_search_for_source),
+                modifier = Modifier
+                    .background(MaterialTheme.colorScheme.background)
+                    .padding(
+                        horizontal = MaterialTheme.padding.medium,
+                        vertical = MaterialTheme.padding.small,
+                    )
+                    .align(Alignment.TopCenter),
+                onGloballyPositioned = { layoutCoordinates ->
+                    searchBoxHeight = with(density) { layoutCoordinates.size.height.toDp() + 2 * MaterialTheme.padding.small }
+                },
+            )
+        }
+    } // end Box
+
     if (trustState != null) {
         ExtensionTrustDialog(
             onClickConfirm = {
@@ -467,13 +580,23 @@ private fun ExtensionItemActions(
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Count badge for installed extensions
         if (isIdle && extension is Extension.Installed && favoriteCount != null) {
-            Text(
-                text = favoriteCount.toString(),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.secondaryItemAlpha(),
-            )
+            BadgeGroup {
+                Badge(
+                    text = favoriteCount.toString(),
+                    color = if (favoriteCount > 0) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    },
+                    textColor = if (favoriteCount > 0) {
+                        MaterialTheme.colorScheme.onSecondary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
         }
         when {
             !isIdle -> {

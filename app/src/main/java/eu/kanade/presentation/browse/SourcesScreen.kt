@@ -166,7 +166,7 @@ fun SourcesScreen(
 }
 
 @Composable
-private fun SourceHeader(
+internal fun SourceHeader(
     language: String,
     // SY -->
     isCategory: Boolean,
@@ -189,7 +189,7 @@ private fun SourceHeader(
 }
 
 @Composable
-private fun SourceItem(
+internal fun SourceItem(
     source: Source,
     // SY -->
     showLatest: Boolean,
@@ -229,7 +229,7 @@ private fun SourceItem(
 }
 
 @Composable
-private fun SourcePinButton(
+internal fun SourcePinButton(
     isPinned: Boolean,
     onClick: () -> Unit,
 ) {

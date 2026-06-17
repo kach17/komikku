@@ -26,6 +26,7 @@ import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.browse.feed.FeedScreenModel
 import eu.kanade.tachiyomi.ui.browse.feed.feedTab
+import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.collections.immutable.persistentListOf
@@ -77,6 +78,8 @@ data object BrowseTab : Tab {
         val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
         val extensionsState by extensionsScreenModel.state.collectAsState()
 
+        val sourcesScreenModel = rememberScreenModel { SourcesScreenModel(smartSearchConfig = null) }
+
         // KMK -->
         val feedScreenModel = rememberScreenModel { FeedScreenModel() }
         val bulkFavoriteScreenModel = rememberScreenModel { BulkFavoriteScreenModel() }
@@ -86,7 +89,7 @@ data object BrowseTab : Tab {
         val tabs = when {
             hideFeedTab ->
                 persistentListOf(
-                    extensionsTab(extensionsScreenModel),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
                 )
 
             feedTabInFront ->
@@ -97,12 +100,12 @@ data object BrowseTab : Tab {
                         bulkFavoriteScreenModel,
                         // KMK <--
                     ),
-                    extensionsTab(extensionsScreenModel),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
                 )
 
             else ->
                 persistentListOf(
-                    extensionsTab(extensionsScreenModel),
+                    extensionsTab(extensionsScreenModel, sourcesScreenModel),
                     feedTab(
                         // KMK -->
                         feedScreenModel,
@@ -119,7 +122,10 @@ data object BrowseTab : Tab {
             tabs = tabs,
             state = state,
             searchQuery = extensionsState.searchQuery,
-            onChangeSearchQuery = extensionsScreenModel::search,
+            onChangeSearchQuery = { query ->
+                extensionsScreenModel.search(query)
+                sourcesScreenModel.search(query)
+            },
             // KMK -->
             feedScreenModel = feedScreenModel,
             bulkFavoriteScreenModel = bulkFavoriteScreenModel,
