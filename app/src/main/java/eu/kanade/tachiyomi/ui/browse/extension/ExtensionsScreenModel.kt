@@ -8,7 +8,9 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
 import eu.kanade.domain.source.interactor.GetSourcesWithFavoriteCount
+import eu.kanade.domain.source.interactor.ToggleSource
 import eu.kanade.domain.source.model.installedExtension
+import tachiyomi.core.common.preference.getAndSet
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.tachiyomi.extension.ExtensionManager
@@ -44,6 +46,7 @@ class ExtensionsScreenModel(
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensions: GetExtensionsByType = Injekt.get(),
     private val getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount = Injekt.get(),
+    private val toggleSource: ToggleSource = Injekt.get(),
 ) : StateScreenModel<ExtensionsScreenModel.State>(State()) {
 
     private val currentDownloads = MutableStateFlow<Map<String, InstallStep>>(hashMapOf())
@@ -251,6 +254,29 @@ class ExtensionsScreenModel(
         extensionManager.uninstallExtension(extension)
     }
 
+    fun togglePin(extension: Extension.Installed) {
+        extension.sources.forEach { source ->
+            val isPinned = source.id.toString() in preferences.pinnedSources().get()
+            preferences.pinnedSources().getAndSet { pinned ->
+                if (isPinned) pinned.minus("${source.id}") else pinned.plus("${source.id}")
+            }
+        }
+    }
+
+    fun toggleSource(extension: Extension.Installed) {
+        extension.sources.forEach { source ->
+            toggleSource.await(source.id)
+        }
+    }
+
+    fun showDialog(extension: Extension.Installed) {
+        mutableState.update { it.copy(dialog = extension) }
+    }
+
+    fun closeDialog() {
+        mutableState.update { it.copy(dialog = null) }
+    }
+
     fun findAvailableExtensions() {
         screenModelScope.launchIO {
             mutableState.update { it.copy(isRefreshing = true) }
@@ -290,6 +316,7 @@ class ExtensionsScreenModel(
         val nsfwOnly: Boolean = false,
         // KMK <--
         val favoriteCountByPkgName: Map<String, Long> = emptyMap(),
+        val dialog: Extension.Installed? = null,
     ) {
         val isEmpty = items.isEmpty()
     }

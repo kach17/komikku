@@ -1,32 +1,21 @@
 package eu.kanade.presentation.browse
 
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.Alignment
-import eu.kanade.presentation.browse.SourceHeader
-import eu.kanade.presentation.browse.SourceItem
-import eu.kanade.presentation.browse.SourceUiModel
-import eu.kanade.presentation.components.AnimatedFloatingSearchBox
-import eu.kanade.presentation.components.SOURCE_SEARCH_BOX_HEIGHT
-import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
-import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
-import tachiyomi.domain.source.model.Source
-import tachiyomi.i18n.kmk.KMR
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.GetApp
@@ -61,6 +50,8 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.browse.components.BaseBrowseItem
 import eu.kanade.presentation.browse.components.ExtensionIcon
+import eu.kanade.presentation.components.AnimatedFloatingSearchBox
+import eu.kanade.presentation.components.SOURCE_SEARCH_BOX_HEIGHT
 import eu.kanade.presentation.components.WarningBanner
 import eu.kanade.presentation.manga.components.DotSeparatorNoSpaceText
 import eu.kanade.presentation.more.settings.screen.browse.ExtensionReposScreen
@@ -70,9 +61,12 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionUiModel
 import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.SourcesScreenModel
+import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceScreenModel.Listing
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import eu.kanade.tachiyomi.util.system.launchRequestPackageInstallsPermission
 import kotlinx.collections.immutable.persistentListOf
+import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.i18n.kmk.KMR
 import tachiyomi.i18n.sy.SYMR
@@ -98,7 +92,7 @@ fun ExtensionScreen(
     searchQuery: String?,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension) -> Unit,
+    onOpenWebView: (Extension.Available) -> Unit,
     onInstallExtension: (Extension.Available) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension.Installed) -> Unit,
@@ -106,6 +100,7 @@ fun ExtensionScreen(
     onOpenExtension: (Extension.Installed) -> Unit,
     onClickUpdateAll: () -> Unit,
     onRefresh: () -> Unit,
+    // Sources section — optional, null when not in unified mode
     sourcesState: SourcesScreenModel.State? = null,
     onClickSourceItem: ((Source, Listing) -> Unit)? = null,
     onClickSourcePin: ((Source) -> Unit)? = null,
@@ -121,7 +116,7 @@ fun ExtensionScreen(
     ) {
         when {
             state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
-            state.isEmpty -> {
+            state.isEmpty && (sourcesState == null || sourcesState.isEmpty) -> {
                 val msg = if (!searchQuery.isNullOrEmpty()) {
                     MR.strings.no_results_found
                 } else {
@@ -169,7 +164,7 @@ private fun ExtensionContent(
     contentPadding: PaddingValues,
     onLongClickItem: (Extension) -> Unit,
     onClickItemCancel: (Extension) -> Unit,
-    onOpenWebView: (Extension) -> Unit,
+    onOpenWebView: (Extension.Available) -> Unit,
     onInstallExtension: (Extension.Available) -> Unit,
     onUninstallExtension: (Extension) -> Unit,
     onUpdateExtension: (Extension.Installed) -> Unit,
@@ -193,6 +188,17 @@ private fun ExtensionContent(
     var searchBoxHeight by remember { mutableStateOf(SOURCE_SEARCH_BOX_HEIGHT) }
     val density = LocalDensity.current
 
+    // When sources are shown, filter installed/updates from extension groups to avoid duplication
+    val extensionItems = if (sourcesState != null) {
+        state.items.filter { (header, _) ->
+            header !is ExtensionUiModel.Header.Resource ||
+                (header.textRes != MR.strings.ext_installed &&
+                    header.textRes != MR.strings.ext_updates_pending)
+        }
+    } else {
+        state.items
+    }
+
     Box {
         FastScrollLazyColumn(
             state = lazyListState,
@@ -202,7 +208,8 @@ private fun ExtensionContent(
                 contentPadding + topSmallPaddingValues
             },
         ) {
-            // Source items — pinned, last used, language grouped
+            // Installed sources at top — pinned, last used, language grouped
+            // Exactly replicates original SourcesScreen behaviour
             if (sourcesState != null && onClickSourceItem != null) {
                 sourcesState.items.forEach { model ->
                     when (model) {
@@ -252,129 +259,130 @@ private fun ExtensionContent(
                 }
             }
 
-        // Filter out installed group when sources section is present to avoid duplication
-        val extensionItems = if (sourcesState != null) {
-            state.items.filter { (header, _) ->
-                header !is ExtensionUiModel.Header.Resource ||
-                    (header.textRes != MR.strings.ext_installed &&
-                        header.textRes != MR.strings.ext_updates_pending)
-            }
-        } else {
-            state.items
-        }
-
-        extensionItems.forEach { (header, items) ->
-            item(
-                contentType = "header",
-                key = "extensionHeader-${header.hashCode()}",
-            ) {
-                when (header) {
-                    is ExtensionUiModel.Header.Resource -> {
-                        val action: @Composable RowScope.() -> Unit =
-                            when (header.textRes) {
-                                MR.strings.ext_updates_pending -> {
-                                    {
-                                        Button(onClick = { onClickUpdateAll() }) {
-                                            Text(
-                                                text = stringResource(MR.strings.ext_update_all),
-                                                style = LocalTextStyle.current.copy(
-                                                    color = MaterialTheme.colorScheme.onPrimary,
-                                                ),
-                                            )
+            extensionItems.forEach { (header, items) ->
+                item(
+                    contentType = "header",
+                    key = "extensionHeader-${header.hashCode()}",
+                ) {
+                    when (header) {
+                        is ExtensionUiModel.Header.Resource -> {
+                            val action: @Composable RowScope.() -> Unit =
+                                when (header.textRes) {
+                                    MR.strings.ext_updates_pending -> {
+                                        {
+                                            Button(onClick = { onClickUpdateAll() }) {
+                                                Text(
+                                                    text = stringResource(MR.strings.ext_update_all),
+                                                    style = LocalTextStyle.current.copy(
+                                                        color = MaterialTheme.colorScheme.onPrimary,
+                                                    ),
+                                                )
+                                            }
                                         }
                                     }
-                                }
-                                // KMK -->
-                                KMR.strings.extensions_page_more -> {
-                                    {
-                                        Button(onClick = { navigator?.push(ExtensionReposScreen()) }) {
-                                            Text(
-                                                text = stringResource(MR.strings.action_add_repo),
-                                                style = LocalTextStyle.current.copy(
-                                                    color = MaterialTheme.colorScheme.onPrimary,
-                                                ),
-                                            )
+                                    // KMK -->
+                                    KMR.strings.extensions_page_more -> {
+                                        {
+                                            Button(onClick = { navigator?.push(ExtensionReposScreen()) }) {
+                                                Text(
+                                                    text = stringResource(MR.strings.action_add_repo),
+                                                    style = LocalTextStyle.current.copy(
+                                                        color = MaterialTheme.colorScheme.onPrimary,
+                                                    ),
+                                                )
+                                            }
                                         }
                                     }
+                                    // KMK <--
+                                    else -> {
+                                        {}
+                                    }
                                 }
-                                // KMK <--
-                                else -> {
-                                    {}
-                                }
-                            }
-                        ExtensionHeader(
-                            textRes = header.textRes,
-                            modifier = Modifier
-                                // KMK -->
-                                .padding(end = MaterialTheme.padding.small)
-                                // KMK <--
-                                .animateItemFastScroll(),
-                            action = action,
-                        )
-                    }
-                    is ExtensionUiModel.Header.Text -> {
-                        ExtensionHeader(
-                            text = header.text,
-                            modifier = Modifier.animateItemFastScroll(),
-                        )
+                            ExtensionHeader(
+                                textRes = header.textRes,
+                                modifier = Modifier
+                                    // KMK -->
+                                    .padding(end = MaterialTheme.padding.small)
+                                    // KMK <--
+                                    .animateItemFastScroll(),
+                                action = action,
+                            )
+                        }
+                        is ExtensionUiModel.Header.Text -> {
+                            ExtensionHeader(
+                                text = header.text,
+                                modifier = Modifier.animateItemFastScroll(),
+                            )
+                        }
                     }
                 }
-            }
 
-            items(
-                items = items,
-                contentType = { "item" },
-                key = { item ->
-                    when (item.extension) {
-                        is Extension.Untrusted -> "extension-untrusted-${item.hashCode()}"
-                        is Extension.Installed -> "extension-installed-${item.hashCode()}"
-                        is Extension.Available -> "extension-available-${item.hashCode()}"
-                    }
-                },
-            ) { item ->
-                ExtensionItem(
-                    modifier = Modifier.animateItemFastScroll(),
-                    item = item,
-                    favoriteCount = (item.extension as? Extension.Installed)
-                        ?.let { state.favoriteCountByPkgName[it.pkgName] },
-                    onClickItem = {
-                        when (it) {
-                            is Extension.Available -> onInstallExtension(it)
-                            is Extension.Installed -> onOpenExtension(it)
-                            is Extension.Untrusted -> {
-                                trustState = it
-                            }
+                items(
+                    items = items,
+                    contentType = { "item" },
+                    key = { item ->
+                        when (item.extension) {
+                            is Extension.Untrusted -> "extension-untrusted-${item.hashCode()}"
+                            is Extension.Installed -> "extension-installed-${item.hashCode()}"
+                            is Extension.Available -> "extension-available-${item.hashCode()}"
                         }
                     },
-                    onLongClickItem = onLongClickItem,
-                    onClickItemSecondaryAction = {
-                        when (it) {
-                            is Extension.Available -> onOpenWebView(it)
-                            is Extension.Installed -> onOpenWebView(it)
-                            else -> {}
-                        }
-                    },
-                    onClickItemCancel = onClickItemCancel,
-                    onClickItemAction = {
-                        when (it) {
-                            is Extension.Available -> onInstallExtension(it)
-                            is Extension.Installed -> {
-                                if (it.hasUpdate) {
-                                    onUpdateExtension(it)
-                                } else {
-                                    onOpenExtension(it)
+                ) { item ->
+                    ExtensionItem(
+                        modifier = Modifier.animateItemFastScroll(),
+                        item = item,
+                        favoriteCount = (item.extension as? Extension.Installed)
+                            ?.let { state.favoriteCountByPkgName[it.pkgName] },
+                        onClickItem = {
+                            when (it) {
+                                is Extension.Available -> onInstallExtension(it)
+                                is Extension.Installed -> onOpenExtension(it)
+                                is Extension.Untrusted -> {
+                                    trustState = it
                                 }
                             }
-                            is Extension.Untrusted -> {
-                                trustState = it
+                        },
+                        onLongClickItem = onLongClickItem,
+                        onClickItemSecondaryAction = {
+                            when (it) {
+                                is Extension.Available -> onOpenWebView(it)
+                                is Extension.Installed -> {
+                                    (it.sources.getOrNull(0) as? eu.kanade.tachiyomi.source.online.HttpSource)
+                                        ?.let { src ->
+                                            navigator?.push(
+                                                eu.kanade.tachiyomi.ui.webview.WebViewScreen(
+                                                    url = src.baseUrl,
+                                                    initialTitle = src.name,
+                                                    sourceId = src.id,
+                                                ),
+                                            )
+                                        }
+                                }
+                                else -> {}
                             }
-                        }
-                    },
-                )
+                        },
+                        onClickItemCancel = onClickItemCancel,
+                        onClickItemAction = {
+                            when (it) {
+                                is Extension.Available -> onInstallExtension(it)
+                                is Extension.Installed -> {
+                                    if (it.hasUpdate) {
+                                        onUpdateExtension(it)
+                                    } else {
+                                        onOpenExtension(it)
+                                    }
+                                }
+                                is Extension.Untrusted -> {
+                                    trustState = it
+                                }
+                            }
+                        },
+                    )
+                }
             }
         }
 
-        // Floating search box for sources — same pattern as SourcesScreen
+        // Floating search box for sources — same pattern as original SourcesScreen
         if (sourcesState != null && onChangeSourceSearchQuery != null) {
             AnimatedFloatingSearchBox(
                 listState = lazyListState,
@@ -388,12 +396,14 @@ private fun ExtensionContent(
                         vertical = MaterialTheme.padding.small,
                     )
                     .align(Alignment.TopCenter),
-                onGloballyPositioned = { layoutCoordinates ->
-                    searchBoxHeight = with(density) { layoutCoordinates.size.height.toDp() + 2 * MaterialTheme.padding.small }
+                onGloballyPositioned = { coords ->
+                    searchBoxHeight = with(density) {
+                        coords.size.height.toDp() + 2 * MaterialTheme.padding.small
+                    }
                 },
             )
         }
-    } // end Box
+    }
 
     if (trustState != null) {
         ExtensionTrustDialog(
@@ -434,8 +444,7 @@ private fun ExtensionItem(
         onLongClickItem = { onLongClickItem(extension) },
         icon = {
             Box(
-                modifier = Modifier
-                    .size(40.dp),
+                modifier = Modifier.size(40.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 val idle = installStep.isCompleted()
@@ -445,7 +454,6 @@ private fun ExtensionItem(
                         strokeWidth = 2.dp,
                     )
                 }
-
                 val padding by animateDpAsState(targetValue = if (idle) 0.dp else 8.dp)
                 ExtensionIcon(
                     extension = extension,
@@ -489,8 +497,6 @@ private fun ExtensionItemContent(
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
         )
-
-        // Won't look good but it's not like we can ellipsize overflowing content
         FlowRow(
             modifier = Modifier.secondaryItemAlpha(),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
@@ -503,24 +509,19 @@ private fun ExtensionItemContent(
                         // KMK <--
                         hasAlreadyShownAnElement = true
                         Text(
-                            text = /* KMK --> */FlagEmoji.getEmojiLangFlag(it) + " " + /* KMK <-- */
+                            text = FlagEmoji.getEmojiLangFlag(it) + " " +
                                 LocaleHelper.getSourceDisplayName(it, LocalContext.current),
                         )
                     }
                 }
-
                 if (extension.versionName.isNotEmpty()) {
                     if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
                     hasAlreadyShownAnElement = true
-                    Text(
-                        text = extension.versionName,
-                    )
+                    Text(text = extension.versionName)
                 }
-
                 // KMK -->
                 Text(text = extension.repoName?.let { "@$it" } ?: "(?)")
                 // KMK <--
-
                 val warning = when {
                     extension is Extension.Untrusted -> MR.strings.ext_untrusted
                     extension is Extension.Installed && extension.isObsolete -> MR.strings.ext_obsolete
@@ -542,11 +543,8 @@ private fun ExtensionItemContent(
                 }
                 if (extension is Extension.Installed && !extension.isShared) {
                     if (hasAlreadyShownAnElement) DotSeparatorNoSpaceText()
-                    Text(
-                        text = stringResource(MR.strings.ext_installer_private),
-                    )
+                    Text(text = stringResource(MR.strings.ext_installer_private))
                 }
-
                 if (!installStep.isCompleted()) {
                     DotSeparatorNoSpaceText()
                     Text(
@@ -580,7 +578,7 @@ private fun ExtensionItemActions(
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // Count badge for installed extensions
+        // Library count badge for installed extensions — right-aligned, uniform position
         if (isIdle && extension is Extension.Installed && favoriteCount != null) {
             BadgeGroup {
                 Badge(
@@ -618,13 +616,13 @@ private fun ExtensionItemActions(
             installStep == InstallStep.Idle -> {
                 when (extension) {
                     is Extension.Installed -> {
+                        // Webview replaces Settings — manage is in BrowseSourceScreen overflow
                         IconButton(onClick = { onClickItemSecondaryAction(extension) }) {
                             Icon(
                                 imageVector = Icons.Outlined.Public,
                                 contentDescription = stringResource(MR.strings.action_open_in_web_view),
                             )
                         }
-
                         if (extension.hasUpdate) {
                             IconButton(onClick = { onClickItemAction(extension) }) {
                                 Icon(
@@ -644,16 +642,13 @@ private fun ExtensionItemActions(
                     }
                     is Extension.Available -> {
                         if (extension.sources.isNotEmpty()) {
-                            IconButton(
-                                onClick = { onClickItemSecondaryAction(extension) },
-                            ) {
+                            IconButton(onClick = { onClickItemSecondaryAction(extension) }) {
                                 Icon(
                                     imageVector = Icons.Outlined.Public,
                                     contentDescription = stringResource(MR.strings.action_open_in_web_view),
                                 )
                             }
                         }
-
                         IconButton(onClick = { onClickItemAction(extension) }) {
                             Icon(
                                 imageVector = Icons.Outlined.GetApp,
@@ -787,15 +782,11 @@ private fun ExtensionItemContentPreview() {
         ExtensionItemContent(extension = extAvail, installStep = InstallStep.Installing)
         ExtensionItemContent(extension = extInstalled, installStep = InstallStep.Idle)
         ExtensionItemContent(
-            extension = extInstalled.copy(
-                isObsolete = true,
-            ),
+            extension = extInstalled.copy(isObsolete = true),
             installStep = InstallStep.Idle,
         )
         ExtensionItemContent(
-            extension = extInstalled.copy(
-                isRedundant = true,
-            ),
+            extension = extInstalled.copy(isRedundant = true),
             installStep = InstallStep.Idle,
         )
         ExtensionItemContent(extension = extUntrusted, installStep = InstallStep.Idle)
