@@ -50,13 +50,14 @@ import tachiyomi.presentation.core.i18n.stringResource
 @Composable
 fun extensionsTab(
     extensionsScreenModel: ExtensionsScreenModel,
-    sourcesScreenModel: SourcesScreenModel,
+    sourcesScreenModel: SourcesScreenModel? = null,
 ): TabContent {
     val navigator = LocalNavigator.currentOrThrow
     val context = LocalContext.current
 
     val state by extensionsScreenModel.state.collectAsState()
-    val sourcesState by sourcesScreenModel.state.collectAsState()
+    val sourcesState by sourcesScreenModel?.state?.collectAsState()
+        ?: remember { mutableStateOf(SourcesScreenModel.State()) }
     var privateExtensionToUninstall by remember { mutableStateOf<Extension?>(null) }
 
     return TabContent(
@@ -95,7 +96,7 @@ fun extensionsTab(
                 extensionsScreenModel.search(null)
             }
             // Filter out installed group since sources section handles it
-            val filteredState = if (!sourcesState.isEmpty) {
+            val filteredState = if (sourcesState != null && !sourcesState.isEmpty) {
                 state.copy(
                     items = state.items.filter { (header, _) ->
                         header !is ExtensionUiModel.Header.Resource ||
@@ -142,9 +143,9 @@ fun extensionsTab(
                 },
                 sourcesState = sourcesState,
                 onClickSourceItem = { source, listing -> navigator.push(BrowseSourceScreen(source.id, listing.query)) },
-                onClickSourcePin = sourcesScreenModel::togglePin,
-                onLongClickSourceItem = sourcesScreenModel::showSourceDialog,
-                onChangeSourceSearchQuery = sourcesScreenModel::search,
+                onClickSourcePin = sourcesScreenModel?.let { sm -> { source: tachiyomi.domain.source.model.Source -> sm.togglePin(source) } },
+                onLongClickSourceItem = sourcesScreenModel?.let { sm -> { source: tachiyomi.domain.source.model.Source -> sm.showSourceDialog(source) } },
+                onChangeSourceSearchQuery = sourcesScreenModel?.let { sm -> { q: String? -> sm.search(q) } },
                 onTrustExtension = { extensionsScreenModel.trustExtension(it) },
                 onUninstallExtension = { extensionsScreenModel.uninstallExtension(it) },
                 onUpdateExtension = extensionsScreenModel::updateExtension,
@@ -190,32 +191,34 @@ fun extensionsTab(
                 )
             }
 
-            when (val dialog = sourcesState.dialog) {
-                is SourcesScreenModel.Dialog.SourceLongClick -> {
-                    val source = dialog.source
-                    SourceOptionsDialog(
-                        source = source,
-                        onClickPin = { sourcesScreenModel.togglePin(source); sourcesScreenModel.closeDialog() },
-                        onClickDisable = { sourcesScreenModel.toggleSource(source); sourcesScreenModel.closeDialog() },
-                        onClickSetCategories = { sourcesScreenModel.showSourceCategoriesDialog(source) }.takeIf { sourcesState.categories.isNotEmpty() },
-                        onClickToggleDataSaver = { sourcesScreenModel.toggleExcludeFromDataSaver(source); sourcesScreenModel.closeDialog() }.takeIf { sourcesState.dataSaverEnabled },
-                        onDismiss = sourcesScreenModel::closeDialog,
-                        onClickSettings = {
-                            source.installedExtension?.let { navigator.push(ExtensionDetailsScreen(it.pkgName)) }
-                            sourcesScreenModel.closeDialog()
-                        },
-                    )
+            if (sourcesScreenModel != null && sourcesState != null) {
+                when (val dialog = sourcesState.dialog) {
+                    is SourcesScreenModel.Dialog.SourceLongClick -> {
+                        val source = dialog.source
+                        SourceOptionsDialog(
+                            source = source,
+                            onClickPin = { sourcesScreenModel.togglePin(source); sourcesScreenModel.closeDialog() },
+                            onClickDisable = { sourcesScreenModel.toggleSource(source); sourcesScreenModel.closeDialog() },
+                            onClickSetCategories = { sourcesScreenModel.showSourceCategoriesDialog(source) }.takeIf { sourcesState.categories.isNotEmpty() },
+                            onClickToggleDataSaver = { sourcesScreenModel.toggleExcludeFromDataSaver(source); sourcesScreenModel.closeDialog() }.takeIf { sourcesState.dataSaverEnabled },
+                            onDismiss = sourcesScreenModel::closeDialog,
+                            onClickSettings = {
+                                source.installedExtension?.let { navigator.push(ExtensionDetailsScreen(it.pkgName)) }
+                                sourcesScreenModel.closeDialog()
+                            },
+                        )
+                    }
+                    is SourcesScreenModel.Dialog.SourceCategories -> {
+                        val source = dialog.source
+                        SourceCategoriesDialog(
+                            source = source,
+                            categories = sourcesState.categories,
+                            onClickCategories = { categories -> sourcesScreenModel.setSourceCategories(source, categories); sourcesScreenModel.closeDialog() },
+                            onDismissRequest = sourcesScreenModel::closeDialog,
+                        )
+                    }
+                    null -> Unit
                 }
-                is SourcesScreenModel.Dialog.SourceCategories -> {
-                    val source = dialog.source
-                    SourceCategoriesDialog(
-                        source = source,
-                        categories = sourcesState.categories,
-                        onClickCategories = { categories -> sourcesScreenModel.setSourceCategories(source, categories); sourcesScreenModel.closeDialog() },
-                        onDismissRequest = sourcesScreenModel::closeDialog,
-                    )
-                }
-                null -> Unit
             }
         },
     )

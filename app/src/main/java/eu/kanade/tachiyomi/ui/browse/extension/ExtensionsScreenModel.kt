@@ -41,7 +41,7 @@ import uy.kohesive.injekt.api.get
 import kotlin.time.Duration.Companion.seconds
 
 class ExtensionsScreenModel(
-    preferences: SourcePreferences = Injekt.get(),
+    private val preferences: SourcePreferences = Injekt.get(),
     basePreferences: BasePreferences = Injekt.get(),
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensions: GetExtensionsByType = Injekt.get(),
@@ -255,9 +255,10 @@ class ExtensionsScreenModel(
     }
 
     fun togglePin(extension: Extension.Installed) {
+        val prefs = Injekt.get<SourcePreferences>()
         extension.sources.forEach { source ->
-            val isPinned = source.id.toString() in preferences.pinnedSources().get()
-            preferences.pinnedSources().getAndSet { pinned ->
+            val isPinned = source.id.toString() in prefs.pinnedSources().get()
+            prefs.pinnedSources().getAndSet { pinned ->
                 if (isPinned) pinned.minus("${source.id}") else pinned.plus("${source.id}")
             }
         }
