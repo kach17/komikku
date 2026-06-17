@@ -26,9 +26,7 @@ import eu.kanade.tachiyomi.ui.browse.extension.ExtensionsScreenModel
 import eu.kanade.tachiyomi.ui.browse.extension.extensionsTab
 import eu.kanade.tachiyomi.ui.browse.feed.FeedScreenModel
 import eu.kanade.tachiyomi.ui.browse.feed.feedTab
-import eu.kanade.tachiyomi.ui.browse.migration.sources.migrateSourceTab
 import eu.kanade.tachiyomi.ui.browse.source.globalsearch.GlobalSearchScreen
-import eu.kanade.tachiyomi.ui.browse.source.sourcesTab
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.channels.BufferOverflow
@@ -88,9 +86,7 @@ data object BrowseTab : Tab {
         val tabs = when {
             hideFeedTab ->
                 persistentListOf(
-                    sourcesTab(),
                     extensionsTab(extensionsScreenModel),
-                    migrateSourceTab(),
                 )
 
             feedTabInFront ->
@@ -101,25 +97,20 @@ data object BrowseTab : Tab {
                         bulkFavoriteScreenModel,
                         // KMK <--
                     ),
-                    sourcesTab(),
                     extensionsTab(extensionsScreenModel),
-                    migrateSourceTab(),
                 )
 
             else ->
                 persistentListOf(
-                    sourcesTab(),
+                    extensionsTab(extensionsScreenModel),
                     feedTab(
                         // KMK -->
                         feedScreenModel,
                         bulkFavoriteScreenModel,
                         // KMK <--
                     ),
-                    extensionsTab(extensionsScreenModel),
-                    migrateSourceTab(),
                 )
         }
-        // SY <--
 
         val state = rememberPagerState { tabs.size }
 
@@ -136,7 +127,7 @@ data object BrowseTab : Tab {
         )
         LaunchedEffect(Unit) {
             switchToExtensionTabChannel.receiveAsFlow()
-                .collectLatest { state.scrollToPage(/* SY --> */2/* SY <-- */) }
+                .collectLatest { state.scrollToPage(if (feedTabInFront) 1 else 0) }
         }
 
         LaunchedEffect(Unit) {
